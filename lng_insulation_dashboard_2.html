@@ -1,0 +1,734 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LNG Pipe Insulation — Cost Model</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg: #0a0e14;
+    --surface: #111620;
+    --surface2: #161c27;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --text: #e8edf5;
+    --text2: #7a8499;
+    --text3: #4a5268;
+    --blue: #3d8ef0;
+    --blue-dim: rgba(61,142,240,0.12);
+    --teal: #1ec98a;
+    --teal-dim: rgba(30,201,138,0.12);
+    --amber: #f0a440;
+    --amber-dim: rgba(240,164,64,0.1);
+    --red: #e05252;
+    --red-dim: rgba(224,82,82,0.1);
+    --mono: 'DM Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 32px;
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 100;
+    backdrop-filter: blur(10px);
+  }
+  .header-left { display: flex; align-items: center; gap: 14px; }
+  .logo-mark {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, var(--teal), var(--blue));
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-size: 12px; font-weight: 500; color: #fff;
+  }
+  .header h1 { font-size: 15px; font-weight: 600; letter-spacing: 0.02em; }
+  .header-sub { font-size: 12px; color: var(--text2); margin-top: 1px; font-family: var(--mono); }
+  .header-badge {
+    font-family: var(--mono); font-size: 11px; color: var(--teal);
+    background: var(--teal-dim); border: 1px solid rgba(30,201,138,0.2);
+    padding: 4px 10px; border-radius: 4px;
+  }
+
+  /* ── Layout ── */
+  .layout {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    min-height: calc(100vh - 65px);
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    border-right: 1px solid var(--border);
+    padding: 24px 20px;
+    overflow-y: auto;
+    position: sticky;
+    top: 65px;
+    height: calc(100vh - 65px);
+  }
+  .sidebar-section { margin-bottom: 28px; }
+  .sidebar-title {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 14px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .sidebar-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  .sys-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    margin-bottom: 10px;
+  }
+  .sys-block.sys-a { border-left: 2px solid var(--blue); }
+  .sys-block.sys-b { border-left: 2px solid var(--teal); }
+  .sys-label {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+    text-transform: uppercase; margin-bottom: 12px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .sys-dot { width: 6px; height: 6px; border-radius: 50%; }
+
+  .param { margin-bottom: 12px; }
+  .param:last-child { margin-bottom: 0; }
+  .param-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 5px; }
+  .param-name { font-size: 12px; color: var(--text2); }
+  .param-val { font-family: var(--mono); font-size: 12px; font-weight: 500; color: var(--text); }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%; height: 3px;
+    background: var(--border2);
+    border-radius: 2px; outline: none; cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--text); cursor: pointer;
+    transition: transform 0.1s;
+  }
+  input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+  .sys-a input[type=range]::-webkit-slider-thumb { background: var(--blue); }
+  .sys-b input[type=range]::-webkit-slider-thumb { background: var(--teal); }
+  .global-params input[type=range]::-webkit-slider-thumb { background: var(--amber); }
+
+  .toggle-row {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    cursor: pointer;
+  }
+  .toggle-row input { display: none; }
+  .toggle-pill {
+    width: 32px; height: 17px;
+    background: var(--border2);
+    border-radius: 17px;
+    position: relative; flex-shrink: 0;
+    transition: background 0.2s;
+  }
+  .toggle-pill::after {
+    content: ''; position: absolute;
+    width: 11px; height: 11px; border-radius: 50%;
+    background: var(--text2); top: 3px; left: 3px;
+    transition: all 0.2s;
+  }
+  .toggle-row input:checked ~ .toggle-pill { background: var(--teal); }
+  .toggle-row input:checked ~ .toggle-pill::after { left: 18px; background: #fff; }
+  .toggle-text { font-size: 12px; color: var(--text2); line-height: 1.4; }
+
+  /* ── Main panel ── */
+  .main { padding: 28px 32px; }
+
+  /* ── Winner banner ── */
+  .winner-banner {
+    border-radius: 10px;
+    padding: 16px 20px;
+    margin-bottom: 24px;
+    display: flex; align-items: center; justify-content: space-between;
+    border: 1px solid;
+    transition: all 0.3s;
+  }
+  .winner-banner.b { background: var(--teal-dim); border-color: rgba(30,201,138,0.25); }
+  .winner-banner.a { background: var(--blue-dim); border-color: rgba(61,142,240,0.25); }
+  .winner-title { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 4px; }
+  .banner-b .winner-title { color: var(--teal); }
+  .banner-a .winner-title { color: var(--blue); }
+  .winner-desc { font-size: 13px; color: var(--text2); }
+  .banner-numbers { text-align: right; }
+  .banner-save { font-family: var(--mono); font-size: 26px; font-weight: 500; }
+  .banner-b .banner-save { color: var(--teal); }
+  .banner-a .banner-save { color: var(--blue); }
+  .banner-days { font-family: var(--mono); font-size: 13px; color: var(--text2); margin-top: 2px; }
+
+  /* ── KPI row ── */
+  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+  .kpi {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .kpi-label { font-size: 11px; color: var(--text3); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+  .kpi-val { font-family: var(--mono); font-size: 20px; font-weight: 500; }
+  .kpi-sub { font-size: 11px; color: var(--text2); margin-top: 3px; }
+
+  /* ── Comparison cards ── */
+  .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 24px; }
+  .sys-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 18px 20px;
+    transition: border-color 0.3s;
+  }
+  .sys-card.winner-a { border-color: var(--blue); }
+  .sys-card.winner-b-card { border-color: var(--teal); }
+  .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .card-tag {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+    text-transform: uppercase; padding: 4px 10px; border-radius: 4px;
+  }
+  .tag-a { background: var(--blue-dim); color: var(--blue); }
+  .tag-b { background: var(--teal-dim); color: var(--teal); }
+  .card-winner-pill {
+    font-size: 10px; font-weight: 600; letter-spacing: 0.06em;
+    text-transform: uppercase; padding: 3px 8px; border-radius: 4px;
+    background: var(--teal-dim); color: var(--teal);
+    border: 1px solid rgba(30,201,138,0.3);
+  }
+  .line-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+  }
+  .line-item:last-child { border-bottom: none; padding-top: 10px; }
+  .line-label { display: flex; align-items: center; gap: 8px; color: var(--text2); }
+  .dot-sq { width: 7px; height: 7px; border-radius: 2px; flex-shrink: 0; }
+  .line-val { font-family: var(--mono); font-size: 13px; }
+  .total-row .line-label { font-weight: 600; color: var(--text); }
+  .total-row .line-val { font-size: 16px; font-weight: 500; }
+
+  /* Time bar */
+  .time-wrap { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+  .time-header { display: flex; justify-content: space-between; font-size: 12px; color: var(--text2); margin-bottom: 6px; }
+  .time-track { height: 6px; background: var(--border2); border-radius: 3px; overflow: hidden; }
+  .time-fill { height: 100%; border-radius: 3px; transition: width 0.4s; }
+
+  /* ── Charts panel ── */
+  .charts-panel { margin-bottom: 24px; }
+  .chart-tabs { display: flex; gap: 4px; margin-bottom: 16px; }
+  .chart-tab {
+    font-family: var(--mono);
+    font-size: 11px; font-weight: 500; letter-spacing: 0.04em;
+    padding: 6px 14px; border-radius: 6px;
+    border: 1px solid var(--border);
+    background: transparent; color: var(--text2);
+    cursor: pointer; transition: all 0.15s;
+  }
+  .chart-tab:hover { border-color: var(--border2); color: var(--text); }
+  .chart-tab.active { background: var(--surface2); border-color: var(--border2); color: var(--text); }
+  .chart-container {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+  }
+  .chart-legend { display: flex; gap: 16px; margin-bottom: 14px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text2); }
+  .legend-sq { width: 10px; height: 10px; border-radius: 2px; }
+  .chart-wrap { position: relative; height: 280px; }
+
+  /* ── Footer ── */
+  .footer {
+    border-top: 1px solid var(--border);
+    padding: 16px 32px;
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 12px; color: var(--text3); font-family: var(--mono);
+  }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  @media (max-width: 960px) {
+    .layout { grid-template-columns: 1fr; }
+    .sidebar { position: static; height: auto; border-right: none; border-bottom: 1px solid var(--border); }
+    .kpi-row { grid-template-columns: repeat(2, 1fr); }
+    .compare-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 600px) {
+    .header { padding: 16px 18px; }
+    .main { padding: 20px 18px; }
+    .kpi-row { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-left">
+    <div class="logo-mark">LNG</div>
+    <div>
+      <h1>Insulation Cost Model</h1>
+      <div class="header-sub">LNG Pipe Systems — Financial Comparison</div>
+    </div>
+  </div>
+  <div class="header-badge">v1.0 · Live Model</div>
+</header>
+
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+
+    <div class="sidebar-section">
+      <div class="sidebar-title">Project</div>
+      <div class="global-params">
+        <div class="param">
+          <div class="param-top">
+            <span class="param-name">Pipe length (m)</span>
+            <span class="param-val" id="lbl-length">1,000 m</span>
+          </div>
+          <input type="range" id="r-length" min="100" max="10000" step="100" value="1000">
+        </div>
+        <div class="param">
+          <div class="param-top">
+            <span class="param-name">Workers on site</span>
+            <span class="param-val" id="lbl-workers">6</span>
+          </div>
+          <input type="range" id="r-workers" min="2" max="30" step="1" value="6">
+        </div>
+        <div class="param">
+          <div class="param-top">
+            <span class="param-name">Daily site overhead</span>
+            <span class="param-val" id="lbl-overhead">$5,000 / day</span>
+          </div>
+          <input type="range" id="r-overhead" min="500" max="50000" step="500" value="5000">
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-title">System A — Stainless steel</div>
+      <div class="sys-block sys-a">
+        <div class="sys-label"><span class="sys-dot" style="background:var(--blue)"></span>Stainless Steel</div>
+        <div class="param">
+          <div class="param-top"><span class="param-name">Material cost</span><span class="param-val" id="lbl-mat-a">$120 / m</span></div>
+          <input type="range" id="r-mat-a" min="20" max="600" step="5" value="120">
+        </div>
+        <div class="param">
+          <div class="param-top"><span class="param-name">Labour hours / metre</span><span class="param-val" id="lbl-lhr">2.5 hr/m</span></div>
+          <input type="range" id="r-lhr" min="0.25" max="10" step="0.25" value="2.5">
+        </div>
+        <div class="param">
+          <div class="param-top"><span class="param-name">Labour rate</span><span class="param-val" id="lbl-lrate">$75 / hr</span></div>
+          <input type="range" id="r-lrate" min="20" max="250" step="5" value="75">
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-title">System B — Prefabricated</div>
+      <div class="sys-block sys-b">
+        <div class="sys-label"><span class="sys-dot" style="background:var(--teal)"></span>Prefabricated</div>
+        <div class="param">
+          <div class="param-top"><span class="param-name">Material cost</span><span class="param-val" id="lbl-mat-b">$220 / m</span></div>
+          <input type="range" id="r-mat-b" min="50" max="1000" step="10" value="220">
+        </div>
+        <div style="background: var(--teal-dim); border: 1px solid rgba(30,201,138,0.15); border-radius: 7px; padding: 9px 11px; font-size: 12px; color: var(--teal); margin-bottom: 12px; line-height: 1.5;">
+          No onsite labour · 50% faster install
+        </div>
+        <div class="param">
+          <div class="param-top"><span class="param-name">Revenue at risk</span><span class="param-val" id="lbl-rev">$10,000 / day</span></div>
+          <input type="range" id="r-rev" min="0" max="100000" step="1000" value="10000">
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-title">Options</div>
+      <label class="toggle-row">
+        <input type="checkbox" id="tog-opp" checked>
+        <div class="toggle-pill"></div>
+        <span class="toggle-text">Include opportunity cost<br>(revenue at risk × downtime days)</span>
+      </label>
+    </div>
+
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- Winner Banner -->
+    <div class="winner-banner b" id="winner-banner">
+      <div class="banner-b" id="banner-text">
+        <div class="winner-title">System B is the lower-cost option</div>
+        <div class="winner-desc">Prefabricated insulation delivers a better total installed cost at this project scale.</div>
+      </div>
+      <div class="banner-numbers">
+        <div class="banner-save banner-b" id="banner-save">—</div>
+        <div class="banner-days" id="banner-days">— days saved</div>
+      </div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="kpi-row">
+      <div class="kpi">
+        <div class="kpi-label">Cost / metre · A</div>
+        <div class="kpi-val" id="kpi-cpm-a" style="color:var(--blue)">—</div>
+        <div class="kpi-sub">stainless steel</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Cost / metre · B</div>
+        <div class="kpi-val" id="kpi-cpm-b" style="color:var(--teal)">—</div>
+        <div class="kpi-sub">prefabricated</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Material premium</div>
+        <div class="kpi-val" id="kpi-mat-prem">—</div>
+        <div class="kpi-sub">B over A per metre</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Labour saving</div>
+        <div class="kpi-val" id="kpi-lab-save" style="color:var(--teal)">—</div>
+        <div class="kpi-sub">eliminated with System B</div>
+      </div>
+    </div>
+
+    <!-- Comparison Cards -->
+    <div class="compare-grid">
+      <div class="sys-card" id="card-a">
+        <div class="card-header">
+          <span class="card-tag tag-a">System A — Stainless Steel</span>
+          <span id="card-a-winner" class="card-winner-pill" style="display:none; background:var(--blue-dim); color:var(--blue); border-color:rgba(61,142,240,0.3);">Lowest cost</span>
+        </div>
+        <div class="line-item">
+          <span class="line-label"><span class="dot-sq" style="background:#3d8ef0"></span>Materials</span>
+          <span class="line-val" id="a-mat">—</span>
+        </div>
+        <div class="line-item">
+          <span class="line-label"><span class="dot-sq" style="background:#6aaaf3"></span>Onsite labour</span>
+          <span class="line-val" id="a-lab">—</span>
+        </div>
+        <div class="line-item">
+          <span class="line-label"><span class="dot-sq" style="background:#9bc6f7"></span>Site overhead</span>
+          <span class="line-val" id="a-ovr">—</span>
+        </div>
+        <div class="line-item opp-row">
+          <span class="line-label"><span class="dot-sq" style="background:#c0dbfb"></span>Opportunity cost</span>
+          <span class="line-val" id="a-opp">—</span>
+        </div>
+        <div class="line-item total-row">
+          <span class="line-label">Total</span>
+          <span class="line-val" id="a-total" style="color:var(--blue)">—</span>
+        </div>
+        <div class="time-wrap">
+          <div class="time-header"><span>Installation duration</span><span id="a-days">—</span></div>
+          <div class="time-track"><div class="time-fill" id="a-bar" style="background:var(--blue); width:100%"></div></div>
+        </div>
+      </div>
+
+      <div class="sys-card" id="card-b">
+        <div class="card-header">
+          <span class="card-tag tag-b">System B — Prefabricated</span>
+          <span id="card-b-winner" class="card-winner-pill" style="display:none;">Lowest cost</span>
+        </div>
+        <div class="line-item">
+          <span class="line-label"><span class="dot-sq" style="background:#1ec98a"></span>Materials</span>
+          <span class="line-val" id="b-mat">—</span>
+        </div>
+        <div class="line-item">
+          <span class="line-label"><span class="dot-sq" style="background:#55d9a3"></span>Onsite labour</span>
+          <span style="font-family:var(--mono); font-size:12px; color:var(--text3)">$0 — none required</span>
+        </div>
+        <div class="line-item">
+          <span class="line-label"><span class="dot-sq" style="background:#8de8c2"></span>Site overhead</span>
+          <span class="line-val" id="b-ovr">—</span>
+        </div>
+        <div class="line-item opp-row">
+          <span class="line-label"><span class="dot-sq" style="background:#b9f0db"></span>Opportunity cost</span>
+          <span class="line-val" id="b-opp">—</span>
+        </div>
+        <div class="line-item total-row">
+          <span class="line-label">Total</span>
+          <span class="line-val" id="b-total" style="color:var(--teal)">—</span>
+        </div>
+        <div class="time-wrap">
+          <div class="time-header"><span>Installation duration</span><span id="b-days">—</span></div>
+          <div class="time-track"><div class="time-fill" id="b-bar" style="background:var(--teal); width:50%"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="charts-panel">
+      <div class="chart-tabs">
+        <button class="chart-tab active" onclick="showTab(1,this)">Stacked cost</button>
+        <button class="chart-tab" onclick="showTab(2,this)">Cost per metre</button>
+        <button class="chart-tab" onclick="showTab(3,this)">Break-even curve</button>
+      </div>
+
+      <div id="panel-1" class="chart-container">
+        <div class="chart-legend">
+          <span class="legend-item"><span class="legend-sq" style="background:#3d8ef0"></span>Materials</span>
+          <span class="legend-item"><span class="legend-sq" style="background:#6aaaf3"></span>Onsite labour</span>
+          <span class="legend-item"><span class="legend-sq" style="background:#9bc6f7"></span>Site overhead</span>
+          <span class="legend-item"><span class="legend-sq" style="background:#c0dbfb"></span>Opportunity cost</span>
+        </div>
+        <div class="chart-wrap"><canvas id="chart1"></canvas></div>
+      </div>
+
+      <div id="panel-2" class="chart-container" style="display:none;">
+        <div class="chart-legend">
+          <span class="legend-item"><span class="legend-sq" style="background:#3d8ef0"></span>System A</span>
+          <span class="legend-item"><span class="legend-sq" style="background:#1ec98a"></span>System B</span>
+        </div>
+        <div class="chart-wrap"><canvas id="chart2"></canvas></div>
+      </div>
+
+      <div id="panel-3" class="chart-container" style="display:none;">
+        <div style="font-size:12px; color:var(--text2); margin-bottom:12px; font-family:var(--mono);">
+          Total cost vs pipe length — crossover point where System B becomes cheaper
+        </div>
+        <div class="chart-wrap"><canvas id="chart3"></canvas></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<footer class="footer">
+  <span>LNG Pipe Insulation Financial Model · All values indicative</span>
+  <span id="footer-ts">—</span>
+</footer>
+
+<script>
+  function fmtM(n) {
+    const abs = Math.abs(n);
+    const sign = n < 0 ? '-' : '';
+    if(abs >= 1e6) return sign + '$' + (abs/1e6).toFixed(2) + 'M';
+    if(abs >= 1000) return sign + '$' + (abs/1000).toFixed(1) + 'k';
+    return sign + '$' + Math.round(abs).toLocaleString();
+  }
+
+  function bind(id, lblId, fmt) {
+    const el = document.getElementById(id);
+    const lbl = document.getElementById(lblId);
+    el.addEventListener('input', () => { lbl.textContent = fmt(+el.value); update(); });
+    lbl.textContent = fmt(+el.value);
+  }
+
+  bind('r-length',   'lbl-length',   v => v.toLocaleString() + ' m');
+  bind('r-workers',  'lbl-workers',  v => v);
+  bind('r-overhead', 'lbl-overhead', v => '$' + v.toLocaleString() + ' / day');
+  bind('r-mat-a',    'lbl-mat-a',    v => '$' + v + ' / m');
+  bind('r-lhr',      'lbl-lhr',      v => v + ' hr/m');
+  bind('r-lrate',    'lbl-lrate',    v => '$' + v + ' / hr');
+  bind('r-mat-b',    'lbl-mat-b',    v => '$' + v + ' / m');
+  bind('r-rev',      'lbl-rev',      v => '$' + v.toLocaleString() + ' / day');
+  document.getElementById('tog-opp').addEventListener('change', update);
+
+  function calc() {
+    const L    = +document.getElementById('r-length').value;
+    const W    = +document.getElementById('r-workers').value;
+    const OH   = +document.getElementById('r-overhead').value;
+    const matA = +document.getElementById('r-mat-a').value;
+    const lhr  = +document.getElementById('r-lhr').value;
+    const lrate= +document.getElementById('r-lrate').value;
+    const matB = +document.getElementById('r-mat-b').value;
+    const rev  = +document.getElementById('r-rev').value;
+    const io   = document.getElementById('tog-opp').checked;
+    const totHrs = L * lhr;
+    const dA = totHrs / (W * 8);
+    const dB = dA * 0.5;
+    const a_mat = L * matA, a_lab = totHrs * lrate,
+          a_ovr = dA * OH,  a_opp = io ? dA * rev : 0;
+    const b_mat = L * matB, b_lab = 0,
+          b_ovr = dB * OH,  b_opp = io ? dB * rev : 0;
+    return { L, W, OH, matA, lhr, lrate, matB, rev, io,
+      dA, dB, a_mat, a_lab, a_ovr, a_opp, a_total: a_mat+a_lab+a_ovr+a_opp,
+      b_mat, b_lab, b_ovr, b_opp, b_total: b_mat+b_lab+b_ovr+b_opp };
+  }
+
+  function update() {
+    const d = calc();
+    const saving = d.a_total - d.b_total;
+    const daysSaved = Math.round((d.dA - d.dB) * 10) / 10;
+    const bWins = saving > 0;
+
+    // Breakdown
+    ['a-mat','a-lab','a-ovr','a-opp','a-total','b-mat','b-ovr','b-opp','b-total'].forEach(id => {
+      const map = {'a-mat':d.a_mat,'a-lab':d.a_lab,'a-ovr':d.a_ovr,'a-opp':d.a_opp,'a-total':d.a_total,
+                   'b-mat':d.b_mat,'b-ovr':d.b_ovr,'b-opp':d.b_opp,'b-total':d.b_total};
+      document.getElementById(id).textContent = fmtM(map[id]);
+    });
+
+    // Opportunity rows
+    document.querySelectorAll('.opp-row').forEach(r => r.style.display = d.io ? 'flex' : 'none');
+
+    // Duration bars
+    document.getElementById('a-days').textContent = (Math.round(d.dA*10)/10).toLocaleString() + ' days';
+    document.getElementById('b-days').textContent = (Math.round(d.dB*10)/10).toLocaleString() + ' days';
+    document.getElementById('a-bar').style.width = '100%';
+    document.getElementById('b-bar').style.width = '50%';
+
+    // Winner
+    const banner = document.getElementById('winner-banner');
+    const bannerText = document.getElementById('banner-text');
+    const bannerSave = document.getElementById('banner-save');
+    const bannerDays = document.getElementById('banner-days');
+    banner.className = 'winner-banner ' + (bWins ? 'b' : 'a');
+    bannerText.className = bWins ? 'banner-b' : 'banner-a';
+    bannerText.querySelector('.winner-title').textContent = bWins ? 'System B is the lower-cost option' : 'System A is the lower-cost option';
+    bannerText.querySelector('.winner-desc').textContent = bWins
+      ? 'Prefabricated insulation delivers a better total installed cost at this project scale.'
+      : 'Stainless steel delivers a better total installed cost at this project scale — material premium not justified.';
+    bannerSave.className = 'banner-save ' + (bWins ? 'banner-b' : 'banner-a');
+    bannerSave.style.color = bWins ? 'var(--teal)' : 'var(--blue)';
+    bannerSave.textContent = fmtM(Math.abs(saving)) + ' saving';
+    bannerDays.textContent = daysSaved + ' days saved';
+
+    // Cards
+    document.getElementById('card-a').className = 'sys-card' + (!bWins ? ' winner-a' : '');
+    document.getElementById('card-b').className = 'sys-card' + (bWins ? ' winner-b-card' : '');
+    document.getElementById('card-a-winner').style.display = !bWins ? 'inline-block' : 'none';
+    document.getElementById('card-b-winner').style.display = bWins ? 'inline-block' : 'none';
+
+    // KPIs
+    document.getElementById('kpi-cpm-a').textContent = fmtM(d.a_total / d.L) + '/m';
+    document.getElementById('kpi-cpm-b').textContent = fmtM(d.b_total / d.L) + '/m';
+    const prem = d.b_mat - d.a_mat;
+    document.getElementById('kpi-mat-prem').textContent = (prem >= 0 ? '+' : '') + fmtM(prem) + '/m';
+    document.getElementById('kpi-mat-prem').style.color = prem > 0 ? 'var(--amber)' : 'var(--teal)';
+    document.getElementById('kpi-lab-save').textContent = fmtM(d.a_lab);
+
+    updateCharts(d);
+  }
+
+  const tickFmt = v => { if(v>=1e6) return '$'+(v/1e6).toFixed(1)+'M'; if(v>=1000) return '$'+(v/1000).toFixed(0)+'k'; return '$'+v; };
+  const darkGrid = 'rgba(255,255,255,0.06)';
+  const darkTick = '#4a5268';
+
+  let c1, c2, c3;
+
+  function initCharts() {
+    const opts = {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { backgroundColor: '#1a2030', titleColor: '#e8edf5', bodyColor: '#7a8499', borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1, padding: 10, callbacks: { label: ctx => '  ' + ctx.dataset.label + ': ' + fmtM(ctx.raw) } } },
+      scales: { x: { stacked: true, grid: { display: false }, ticks: { color: darkTick } }, y: { stacked: true, grid: { color: darkGrid }, ticks: { color: darkTick, callback: tickFmt } } }
+    };
+
+    c1 = new Chart(document.getElementById('chart1'), {
+      type: 'bar',
+      data: { labels: ['System A — Stainless Steel', 'System B — Prefabricated'],
+        datasets: [
+          { label: 'Materials',        data: [0,0], backgroundColor: ['#3d8ef0','#1ec98a'], borderRadius: { topLeft:4,topRight:4,bottomLeft:0,bottomRight:0 } },
+          { label: 'Onsite labour',    data: [0,0], backgroundColor: ['#6aaaf3','#55d9a3'], borderRadius: 0 },
+          { label: 'Site overhead',    data: [0,0], backgroundColor: ['#9bc6f7','#8de8c2'], borderRadius: 0 },
+          { label: 'Opportunity cost', data: [0,0], backgroundColor: ['#c0dbfb','#b9f0db'], borderRadius: 0 }
+        ]
+      }, options: JSON.parse(JSON.stringify(opts))
+    });
+
+    const opts2 = JSON.parse(JSON.stringify(opts));
+    opts2.scales.x.stacked = false; opts2.scales.y.stacked = false;
+    opts2.plugins.tooltip.callbacks.label = ctx => '  ' + ctx.dataset.label + ': $' + ctx.raw.toFixed(2) + '/m';
+    opts2.scales.y.ticks.callback = v => '$' + v.toFixed(0) + '/m';
+
+    c2 = new Chart(document.getElementById('chart2'), {
+      type: 'bar',
+      data: { labels: ['Materials', 'Onsite Labour', 'Site Overhead', 'Opportunity Cost'],
+        datasets: [
+          { label: 'System A', data: [0,0,0,0], backgroundColor: 'rgba(61,142,240,0.8)', borderRadius: 4 },
+          { label: 'System B', data: [0,0,0,0], backgroundColor: 'rgba(30,201,138,0.8)', borderRadius: 4 }
+        ]
+      }, options: opts2
+    });
+
+    const opts3 = JSON.parse(JSON.stringify(opts));
+    opts3.scales.x.stacked = false; opts3.scales.y.stacked = false;
+    opts3.plugins.tooltip.callbacks.label = ctx => '  ' + ctx.dataset.label + ': ' + fmtM(ctx.raw);
+
+    c3 = new Chart(document.getElementById('chart3'), {
+      type: 'line',
+      data: { labels: [], datasets: [
+        { label: 'System A — Stainless Steel', data: [], borderColor: '#3d8ef0', backgroundColor: 'rgba(61,142,240,0.06)', fill: true, tension: 0.1, pointRadius: 0, borderWidth: 2 },
+        { label: 'System B — Prefabricated',   data: [], borderColor: '#1ec98a', backgroundColor: 'rgba(30,201,138,0.06)', fill: true, tension: 0.1, pointRadius: 0, borderWidth: 2 }
+      ]}, options: opts3
+    });
+  }
+
+  function updateCharts(d) {
+    if(!c1) return;
+    c1.data.datasets[0].data = [d.a_mat, d.b_mat];
+    c1.data.datasets[1].data = [d.a_lab, 0];
+    c1.data.datasets[2].data = [d.a_ovr, d.b_ovr];
+    c1.data.datasets[3].data = [d.a_opp, d.b_opp];
+    c1.update('none');
+
+    c2.data.datasets[0].data = [d.a_mat/d.L, d.a_lab/d.L, d.a_ovr/d.L, d.a_opp/d.L];
+    c2.data.datasets[1].data = [d.b_mat/d.L, 0, d.b_ovr/d.L, d.b_opp/d.L];
+    c2.update('none');
+
+    const steps = 25, maxL = 8000;
+    const labels = Array.from({length: steps+1}, (_,i) => Math.round(i * maxL / steps));
+    c3.data.labels = labels;
+    c3.data.datasets[0].data = labels.map(l => {
+      const hrs = l * d.lhr, days = hrs / (d.W * 8);
+      return l * d.matA + hrs * d.lrate + days * d.OH + (d.io ? days * d.rev : 0);
+    });
+    c3.data.datasets[1].data = labels.map(l => {
+      const hrs = l * d.lhr, daysB = hrs / (d.W * 8) * 0.5;
+      return l * d.matB + daysB * d.OH + (d.io ? daysB * d.rev : 0);
+    });
+    c3.options.scales.x.ticks.callback = (v, i) => {
+      const lv = labels[i];
+      return lv !== undefined && lv % 2000 === 0 ? lv.toLocaleString() + 'm' : '';
+    };
+    c3.update('none');
+  }
+
+  function showTab(n, btn) {
+    [1,2,3].forEach(i => {
+      document.getElementById('panel-'+i).style.display = i === n ? 'block' : 'none';
+    });
+    document.querySelectorAll('.chart-tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+  }
+
+  document.getElementById('footer-ts').textContent = 'Last updated: ' + new Date().toLocaleString();
+
+  initCharts();
+  update();
+</script>
+</body>
+</html>
